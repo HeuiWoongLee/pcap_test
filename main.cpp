@@ -5,6 +5,8 @@
 #include <net/ethernet.h>
 #include <netinet/ip.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
 #include <iostream>
 
 void *ethernet_handler(void *arg)
@@ -56,11 +58,15 @@ int main(/*int argc, char *argv[]*/)
         struct pcap_pkthdr *h;
         struct ether_header *eth_header;
         struct iphdr *ip_header;
+        struct tcphdr *tcp_header;
+        struct udphdr *udp_header;
         int res = pcap_next_ex(handle, &h, &p);
+        unsigned int ptype = ntohs(eth_header->ether_type);
 
         eth_header = (struct ether_header*) p;
         ip_header = (struct iphdr*)(p+sizeof(struct ether_header));
-        unsigned int ptype = ntohs(eth_header->ether_type);
+        tcp_header = (struct tcphdr*)(p+sizeof(struct ether_header)+sizeof(struct iphdr));
+        udp_header = (struct udphdr*)(p+sizeof(struct ether_header)+sizeof(struct iphdr));
 
         if(res == -1) break;
         if(res == 1){
@@ -72,9 +78,24 @@ int main(/*int argc, char *argv[]*/)
                 printf("dst ip : %s\n", inet_ntoa(*(struct in_addr *)&ip_header->daddr));
 
                 switch(ip_header->protocol){
-                    case 6: {printf("protocol : TCP\n"); break;};
-                    case 17: {printf("protocol : UDP\n"); break;};
-                    default: {printf("protocol : %d\n", ip_header->protocol); break;};
+                case 6: {
+                    printf("protocol : TCP\n");
+                    printf("src port : %d ", ntohs(tcp_header->source));
+                    printf("dst port : %d\n", ntohs(tcp_header->dest));
+
+                    break;};
+
+                case 17: {
+                    printf("protocol : UDP\n");
+                    printf("src port : %d ", ntohs(udp_header->uh_sport));
+                    printf("dst port : %d\n", ntohs(udp_header->uh_dport));
+
+                    break;};
+
+                default: {
+                    printf("protocol : %d\n", ip_header->protocol);
+
+                    break;};
                 }
             }
 
