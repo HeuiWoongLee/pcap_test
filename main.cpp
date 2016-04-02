@@ -1,10 +1,32 @@
 #include <stdio.h>
+#include <string.h>
 #include <arpa/inet.h>
 #include <pcap.h>
 #include <net/ethernet.h>
 #include <netinet/ip.h>
 #include <netinet/in.h>
 #include <iostream>
+
+void *ethernet_handler(void *arg)
+{
+    struct ether_header* eth_h = (struct ether_header*) arg;
+
+    printf("dst mac : [%02x:%02x:%02x:%02x:%02x:%02x] src mac : [%02x:%02x:%02x:%02x:%02x:%02x] ",
+           eth_h->ether_dhost[0],
+            eth_h->ether_dhost[1],
+            eth_h->ether_dhost[2],
+            eth_h->ether_dhost[3],
+            eth_h->ether_dhost[4],
+            eth_h->ether_dhost[5],
+            eth_h->ether_shost[0],
+            eth_h->ether_shost[1],
+            eth_h->ether_shost[2],
+            eth_h->ether_shost[3],
+            eth_h->ether_shost[4],
+            eth_h->ether_shost[5]);
+
+    return 0;
+}
 
 int main(/*int argc, char *argv[]*/)
 {
@@ -44,20 +66,7 @@ int main(/*int argc, char *argv[]*/)
         if(res == 1){
             if(ptype == 2048){
                 printf("Jacked a packet %p with length of [%d]%x\n", p, h->len, *p);
-                printf("dst mac : [%02x:%02x:%02x:%02x:%02x:%02x] ",
-                       eth_header->ether_dhost[0],
-                        eth_header->ether_dhost[1],
-                        eth_header->ether_dhost[2],
-                        eth_header->ether_dhost[3],
-                        eth_header->ether_dhost[4],
-                        eth_header->ether_dhost[5]);
-                printf("src mac : [%02x:%02x:%02x:%02x:%02x:%02x] ",
-                       eth_header->ether_shost[0],
-                        eth_header->ether_shost[1],
-                        eth_header->ether_shost[2],
-                        eth_header->ether_shost[3],
-                        eth_header->ether_shost[4],
-                        eth_header->ether_shost[5]);
+                ethernet_handler((void *)p);
                 printf("protocol type : %04x\n", ptype);
                 printf("src ip : %s\n", inet_ntoa(*(struct in_addr *)&ip_header->saddr));
                 printf("dst ip : %s\n", inet_ntoa(*(struct in_addr *)&ip_header->daddr));
