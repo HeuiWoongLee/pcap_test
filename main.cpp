@@ -63,15 +63,17 @@ int main(/*int argc, char *argv[]*/)
         int res = pcap_next_ex(handle, &h, &p);
         unsigned int ptype = ntohs(eth_header->ether_type);
 
-        eth_header = (struct ether_header*) p;
-        ip_header = (struct iphdr*)(p+sizeof(struct ether_header));
-        tcp_header = (struct tcphdr*)(p+sizeof(struct ether_header)+sizeof(struct iphdr));
-        udp_header = (struct udphdr*)(p+sizeof(struct ether_header)+sizeof(struct iphdr));
+        eth_header = (struct ether_header*)p;
+        ip_header = (struct iphdr*)(p + sizeof(struct ether_header));
+        tcp_header = (struct tcphdr*)(ip_header + 1);
+        udp_header = (struct udphdr*)(ip_header + 1); // Using this sentence comes a different result. I don't know why...
+                                                      // -> tcp_header = (struct tcphdr*)(ip_header + sizeof(struct iphdr));
+                                                      // -> udp_header = (struct udphdr*)(ip_header + sizeof(struct iphdr));
 
         if(res == -1) break;
         if(res == 1){
             if(ptype == 2048){
-                printf("Jacked a packet %p with length of [%d]%x\n", p, h->len, *p);
+//                printf("Jacked a packet %p with length of [%d]%x\n", p, h->len, *p);
                 ethernet_handler((void *)p);
                 printf("protocol type : %04x\n", ptype);
                 printf("src ip : %s\n", inet_ntoa(*(struct in_addr *)&ip_header->saddr));
