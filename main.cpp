@@ -2,16 +2,16 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <pcap.h>
-#include <net/ethernet.h>
+/*#include <net/ethernet.h>
 #include <netinet/ip.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <netinet/udp.h>
-#include <iostream>
+#include <netinet/udp.h>*/
+#include <libnet.h>
 
 void *ethernet_handler(void *arg)
 {
-    struct ether_header* eth_h = (struct ether_header*) arg;
+    struct libnet_ethernet_hdr* eth_h = (struct libnet_ethernet_hdr*) arg;
 
     printf("dst mac : [%02x:%02x:%02x:%02x:%02x:%02x] src mac : [%02x:%02x:%02x:%02x:%02x:%02x] ",
            eth_h->ether_dhost[0],
@@ -56,38 +56,33 @@ int main(/*int argc, char *argv[]*/)
     while(1){
         const u_char *p;
         struct pcap_pkthdr *h;
-        struct ether_header *eth_header;
-        struct iphdr *ip_header;
-        struct tcphdr *tcp_header;
-        struct udphdr *udp_header;
+        struct libnet_ethernet_hdr *eth_header;
         int res = pcap_next_ex(handle, &h, &p);
         unsigned int ptype = ntohs(eth_header->ether_type);
 
-        eth_header = (struct ether_header*)p;
-        ip_header = (struct iphdr*)(p + sizeof(struct ether_header));
-        tcp_header = (struct tcphdr*)(ip_header + 1);
-        udp_header = (struct udphdr*)(ip_header + 1); // Using this sentence comes a different result. I don't know why...
-                                                      // -> tcp_header = (struct tcphdr*)(ip_header + sizeof(struct iphdr));
-                                                      // -> udp_header = (struct udphdr*)(ip_header + sizeof(struct iphdr));
+        eth_header = (struct libnet_ethernet_hdr*)p;
 
         if(res == -1) break;
         if(res == 1){
-            if(ptype == 2048){
+            if(ptype == ETHERTYPE_IP){
 //                printf("Jacked a packet %p with length of [%d]%x\n", p, h->len, *p);
+                struct libnet_ipv4_hdr *ip_header = (struct libnet_ipv4_hdr*)(p + sizeof(struct libnet_ethernet_hdr));
                 ethernet_handler((void *)p);
                 printf("protocol type : %04x\n", ptype);
-                printf("src ip : %s\n", inet_ntoa(*(struct in_addr *)&ip_header->saddr));
-                printf("dst ip : %s\n", inet_ntoa(*(struct in_addr *)&ip_header->daddr));
+                printf("src ip : %s\n", inet_ntoa(*(struct in_addr *)&ip_header->ip_src));
+                printf("dst ip : %s\n", inet_ntoa(*(struct in_addr *)&ip_header->ip_dst));
 
-                switch(ip_header->protocol){
-                case 6: {
+                switch(ip_header->ip_p){
+                case IPPROTO_TCP: {
+                    struct libnet_tcp_hdr *tcp_header = (struct libnet_tcp_hdr*)(ip_header + 1);
                     printf("protocol : TCP\n");
-                    printf("src port : %d ", ntohs(tcp_header->source));
-                    printf("dst port : %d\n", ntohs(tcp_header->dest));
+                    printf("src port : %d ", ntohs(tcp_header->th_sport));
+                    printf("dst port : %d\n", ntohs(tcp_header->th_dport));
 
                     break;};
 
-                case 17: {
+                case IPPROTO_UDP: {
+                    struct libnet_udp_hdr *udp_header = (struct libnet_udp_hdr*)(ip_header + 1);
                     printf("protocol : UDP\n");
                     printf("src port : %d ", ntohs(udp_header->uh_sport));
                     printf("dst port : %d\n", ntohs(udp_header->uh_dport));
@@ -95,7 +90,7 @@ int main(/*int argc, char *argv[]*/)
                     break;};
 
                 default: {
-                    printf("protocol : %d\n", ip_header->protocol);
+                    printf("protocol : %d\n", ip_header->ip_p);
 
                     break;};
                 }
